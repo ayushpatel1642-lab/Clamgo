@@ -1,0 +1,66 @@
+import React from 'react';
+import { NavLink } from 'react-router-dom';
+import { Home, Brain, LayoutList, Clock, Info, BotMessageSquare } from 'lucide-react';
+import clsx from 'clsx';
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  const navItems = [
+    { to: '/', icon: Home, label: 'Home' },
+    { to: '/brain-dump', icon: Brain, label: 'Brain Dump' },
+    { to: '/timeline', icon: Clock, label: 'Timeline' },
+    { to: '/memory-dock', icon: LayoutList, label: 'Later' },
+    { to: '/coach', icon: BotMessageSquare, label: 'Coach' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#F4F5F2] flex flex-col md:flex-row text-[#1A1C19] font-sans">
+      <main className="flex-1 pb-20 md:pb-0 md:pl-20 max-w-7xl mx-auto w-full">
+        {children}
+      </main>
+
+      {/* Mobile Bottom Navigation */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[#FBFDF8] border-t border-[#E0E3DB] px-6 py-3 flex justify-between items-center z-50 safe-area-pb">
+        {navItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              clsx(
+                'flex flex-col items-center gap-1 p-2 rounded-xl transition-colors',
+                isActive ? 'text-[#3A693A]' : 'text-[#424940] hover:text-[#1A1C19]'
+              )
+            }
+          >
+            <item.icon className="w-6 h-6" />
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      {/* Desktop Sidebar Navigation */}
+      <nav className="hidden md:flex fixed top-0 left-0 bottom-0 w-20 bg-[#FBFDF8] border-r border-[#E0E3DB] flex-col items-center py-8 z-50">
+        <div className="w-10 h-10 rounded-lg bg-[#3A693A] flex items-center justify-center mb-8">
+          <div className="w-4 h-4 border-2 border-white rounded-full"></div>
+        </div>
+        
+        <div className="flex flex-col gap-6 flex-1">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              title={item.label}
+              className={({ isActive }) =>
+                clsx(
+                  'p-3 rounded-xl transition-colors flex items-center justify-center',
+                  isActive ? 'bg-[#DDE5D9] text-[#101F10]' : 'text-[#424940] hover:bg-[#EDF1E9] hover:text-[#101F10]'
+                )
+              }
+            >
+              <item.icon className="w-6 h-6" />
+            </NavLink>
+          ))}
+        </div>
+      </nav>
+    </div>
+  );
+}

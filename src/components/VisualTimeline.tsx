@@ -25,7 +25,7 @@ export default function VisualTimeline() {
         setTasks(data);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function VisualTimeline() {
         setTasks(tasks.filter(t => t.id !== taskId));
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     }
   };
 

@@ -225,6 +225,29 @@ Output strict JSON only, using this schema:
     }
   });
 
+  app.delete("/api/tasks/:id", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const taskId = parseInt(req.params.id);
+      
+      // Delete child records first if necessary, or just rely on CASCADE if configured
+      // For now, manually delete task steps, sessions, etc to be safe since no CASCADE was explicitly set.
+      await db.delete(taskSteps).where(eq(taskSteps.taskId, taskId));
+      await db.delete(focusSessions).where(eq(focusSessions.taskId, taskId));
+
+      const result = await db.delete(tasks)
+        .where(and(eq(tasks.id, taskId), eq(tasks.userId, req.user!.uid)))
+        .returning();
+      
+      if (result.length === 0) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
+  });
+
   // Task detail API
   app.get("/api/tasks/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
@@ -249,9 +272,19 @@ Output strict JSON only, using this schema:
   app.put("/api/tasks/:id", requireAuth, async (req: AuthRequest, res) => {
     try {
       const taskId = parseInt(req.params.id);
-      const { status } = req.body;
+      const { status, title, estimatedDuration } = req.body;
+      
+      const updateData: any = {};
+      if (status !== undefined) updateData.status = status;
+      if (title !== undefined) updateData.title = title;
+      if (estimatedDuration !== undefined) updateData.estimatedDuration = estimatedDuration;
+      
+      if (Object.keys(updateData).length === 0) {
+        return res.json({});
+      }
+
       const result = await db.update(tasks)
-        .set({ status })
+        .set(updateData)
         .where(and(eq(tasks.id, taskId), eq(tasks.userId, req.user!.uid)))
         .returning();
       res.json(result[0]);

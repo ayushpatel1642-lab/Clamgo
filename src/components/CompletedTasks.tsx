@@ -23,7 +23,7 @@ export default function CompletedTasks() {
         setTasks(data);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }

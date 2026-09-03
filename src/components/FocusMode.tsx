@@ -159,7 +159,7 @@ export default function FocusMode() {
       await Promise.all(promises);
       
       if (taskId && stepId) {
-        navigate(`/tasks/${taskId}/decompose`);
+        navigate(`/task-decomposer/${taskId}`);
       } else {
         navigate('/');
       }
@@ -204,7 +204,7 @@ export default function FocusMode() {
       });
       if (res.ok) {
         const data = await res.json();
-        setStuckIntervention(data.advice);
+        setStuckIntervention(data.intervention);
       }
     } catch (e) {
       console.error(e);

@@ -25,7 +25,7 @@ export default function ReminderService() {
             if (Notification.permission === 'granted') {
               new Notification('Serene Focus', {
                 body: r.title,
-                icon: '/vite.svg'
+                icon: '/favicon.ico'
               });
             } else {
               alert(`Reminder: ${r.title}`);

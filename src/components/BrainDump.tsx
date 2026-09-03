@@ -9,6 +9,7 @@ export default function BrainDump() {
   const [reviewData, setReviewData] = useState<any>(null);
   const [dumpId, setDumpId] = useState<number | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [hasRecognition, setHasRecognition] = useState(false);
   const recognitionRef = useRef<any>(null);
   
   const { getToken } = useAuth();
@@ -20,16 +21,7 @@ export default function BrainDump() {
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = true;
       recognitionRef.current.interimResults = true;
-      
-      recognitionRef.current.onresult = (event: any) => {
-        let currentTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          currentTranscript += event.results[i][0].transcript;
-        }
-        // Append to existing text but avoid duplicating previous final results if we manage state carefully.
-        // For simplicity, we just use the final result to update the state when continuous is true.
-        // Actually, a simpler way is to just append the final results.
-      };
+      setHasRecognition(true);
 
       recognitionRef.current.onresult = (event: any) => {
         let finalTranscript = '';
@@ -181,7 +173,7 @@ export default function BrainDump() {
                   <div key={idx} className="flex justify-between items-start border-b border-[#E0E3DB] pb-3 last:border-0 last:pb-0">
                     <h4 className="font-bold text-[#101F10]">{rem.title}</h4>
                     <span className="text-xs font-bold bg-[#EDF1E9] text-[#3A693A] px-2 py-1 rounded-full whitespace-nowrap">
-                      {rem.due || 'Anytime'}
+                      {rem.triggerTime ? new Date(rem.triggerTime).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }) : 'Anytime'}
                     </span>
                   </div>
                 ))}

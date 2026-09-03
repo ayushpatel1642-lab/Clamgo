@@ -87,7 +87,7 @@ export default function HomeDashboard() {
   const handlePostpone = async (taskId: number) => {
     try {
       const token = await getToken();
-      await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -95,16 +95,18 @@ export default function HomeDashboard() {
         },
         body: JSON.stringify({ status: 'postponed' })
       });
+      if (!res.ok) throw new Error("Failed to postpone");
       fetchTasks();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || "Something went wrong.");
     }
   };
 
   const handleActivate = async (taskId: number) => {
     try {
       const token = await getToken();
-      await fetch(`/api/tasks/${taskId}`, {
+      const res = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -112,9 +114,51 @@ export default function HomeDashboard() {
         },
         body: JSON.stringify({ status: 'pending' })
       });
+      if (!res.ok) throw new Error("Failed to activate");
       fetchTasks();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || "Something went wrong.");
+    }
+  };
+
+  const handleDelete = async (taskId: number) => {
+    if (!window.confirm("Are you sure you want to delete this task?")) return;
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) throw new Error("Failed to delete");
+      fetchTasks();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Something went wrong.");
+    }
+  };
+
+  const handleEdit = async (taskId: number, currentTitle: string) => {
+    const newTitle = window.prompt("Edit task title:", currentTitle);
+    if (newTitle === null || newTitle.trim() === "") return;
+    
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ title: newTitle.trim() })
+      });
+      if (!res.ok) throw new Error("Failed to edit task");
+      fetchTasks();
+    } catch (e: any) {
+      console.error(e);
+      alert(e.message || "Something went wrong.");
     }
   };
 
@@ -151,6 +195,14 @@ export default function HomeDashboard() {
                 <Sparkles className="w-5 h-5" />
                 Break it down
               </Link>
+
+              <button 
+                onClick={() => handleEdit(activeTask.id, activeTask.title)}
+                className="flex items-center justify-center gap-2 bg-white border border-[#E0E3DB] text-[#424940] px-8 py-4 rounded-2xl font-bold hover:bg-[#F4F5F2] transition-colors"
+              >
+                <Edit2 className="w-5 h-5" />
+                Edit
+              </button>
             </div>
             
             <Link to={`/stuck/${activeTask.id}`} className="mt-6 text-xs text-[#424940] hover:text-[#101F10] font-bold underline underline-offset-4 decoration-[#3A693A]">
@@ -216,6 +268,12 @@ export default function HomeDashboard() {
               <div key={task.id} className="bg-white p-4 rounded-2xl border border-[#E0E3DB] shadow-sm flex items-center justify-between group">
                 <span className="font-medium text-[#101F10]">{task.title}</span>
                 <div className="flex gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEdit(task.id, task.title)} className="text-xs px-2 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] transition-colors">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDelete(task.id)} className="text-xs px-2 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] hover:text-red-500 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <button onClick={() => handlePostpone(task.id)} className="text-xs px-3 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] transition-colors">
                     Later (Someday)
                   </button>
@@ -238,6 +296,12 @@ export default function HomeDashboard() {
               <div key={task.id} className="bg-white/50 p-4 rounded-2xl border border-dashed border-[#E0E3DB] flex items-center justify-between group">
                 <span className="font-medium text-[#424940]">{task.title}</span>
                 <div className="flex gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleEdit(task.id, task.title)} className="text-xs px-2 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] transition-colors">
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => handleDelete(task.id)} className="text-xs px-2 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] hover:text-red-500 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
                   <button onClick={() => handleActivate(task.id)} className="text-xs px-3 py-1.5 rounded-full border border-[#3A693A] text-[#3A693A] hover:bg-[#EDF1E9] transition-colors">
                     Move to Today
                   </button>

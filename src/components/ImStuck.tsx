@@ -26,7 +26,7 @@ export default function ImStuck() {
         setTask(data.task);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     }
   };
 
@@ -52,7 +52,7 @@ export default function ImStuck() {
         setIntervention(data.intervention);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }

@@ -41,7 +41,7 @@ export default function TaskDecomposer() {
         setSteps(data.steps);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,7 @@ export default function TaskDecomposer() {
         setSteps(data.steps);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setDecomposing(false);
     }
@@ -83,7 +83,7 @@ export default function TaskDecomposer() {
         setSteps(steps.map(s => s.id === stepId ? { ...s, isCompleted } : s));
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     }
   };
 

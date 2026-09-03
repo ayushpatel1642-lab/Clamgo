@@ -45,7 +45,7 @@ export default function AICoach() {
         setMessages(prev => [...prev, { role: 'assistant', content: data.reply }]);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
       setMessages(prev => [...prev, { role: 'assistant', content: "Sorry, I'm having trouble connecting right now." }]);
     } finally {
       setLoading(false);

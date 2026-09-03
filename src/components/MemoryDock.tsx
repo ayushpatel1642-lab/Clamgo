@@ -26,7 +26,7 @@ export default function MemoryDock() {
         setItems(data);
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function MemoryDock() {
         setNewItem('');
       }
     } catch (e) {
-      console.error(e);
+      console.error(e); alert(e.message || "Something went wrong.");
     }
   };
 
@@ -71,7 +71,7 @@ export default function MemoryDock() {
         setItems(prev => prev.filter(item => item.id !== id));
         setDeletedIds(prev => prev.filter(x => x !== id));
       } catch (e) {
-        console.error(e);
+        console.error(e); alert(e.message || "Something went wrong.");
       }
     }, 5000);
     

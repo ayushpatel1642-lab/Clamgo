@@ -100,7 +100,7 @@ export default function VisualTimeline() {
                         <span>{format(taskStart, 'h:mm a')} - {format(taskEnd, 'h:mm a')}</span>
                       </div>
                       
-                      <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex items-center gap-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                         <button 
                           onClick={() => handleMarkComplete(task.id)}
                           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold text-[#424940] border border-[#E0E3DB] hover:bg-[#EDF1E9] transition-colors"

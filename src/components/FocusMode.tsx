@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Play, Pause, Square, ArrowLeft, CheckCircle2 } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 
 export default function FocusMode() {
   const { taskId } = useParams();
+  const [searchParams] = useSearchParams();
+  const stepId = searchParams.get('stepId');
   const { getToken } = useAuth();
   const navigate = useNavigate();
   
@@ -13,6 +15,7 @@ export default function FocusMode() {
   const [isActive, setIsActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [task, setTask] = useState<any>(null);
+  const [step, setStep] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   
   const endTimeRef = useRef<number | null>(null);
@@ -58,6 +61,17 @@ export default function FocusMode() {
       if (res.ok) {
         const data = await res.json();
         setTask(data.task);
+        if (stepId && data.steps) {
+          const foundStep = data.steps.find((s: any) => s.id.toString() === stepId);
+          if (foundStep) {
+            setStep(foundStep);
+            setDuration(foundStep.estimatedDuration || 25);
+            setTimeLeft((foundStep.estimatedDuration || 25) * 60);
+          }
+        } else if (data.task.estimatedDuration) {
+          setDuration(data.task.estimatedDuration);
+          setTimeLeft(data.task.estimatedDuration * 60);
+        }
       }
     } catch (e) {
       console.error(e);
@@ -73,7 +87,7 @@ export default function FocusMode() {
     setIsPaused(true);
   };
 
-  const handleComplete = async () => {
+  const handleComplete = async (markDone: boolean = false) => {
     setIsActive(false);
     setIsPaused(false);
     setSaving(true);
@@ -82,27 +96,65 @@ export default function FocusMode() {
       const token = await getToken();
       const actualDuration = Math.ceil((duration * 60 - timeLeft) / 60);
       
-      await fetch('/api/focus-sessions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          taskId: taskId ? parseInt(taskId) : null,
-          duration,
-          actualDuration,
-          completed: timeLeft === 0
+      const promises: Promise<any>[] = [
+        fetch('/api/focus-sessions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            taskId: taskId ? parseInt(taskId) : null,
+            duration,
+            actualDuration,
+            completed: timeLeft === 0
+          })
         })
-      });
+      ];
+
+      const shouldMarkComplete = markDone || timeLeft === 0;
+
+      if (shouldMarkComplete && taskId) {
+        if (stepId) {
+          promises.push(
+            fetch(`/api/tasks/${taskId}/steps/${stepId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ isCompleted: true })
+            })
+          );
+        } else {
+          promises.push(
+            fetch(`/api/tasks/${taskId}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ status: 'completed' })
+            })
+          );
+        }
+      }
       
-      navigate('/');
+      await Promise.all(promises);
+      
+      if (taskId && stepId) {
+        navigate(`/tasks/${taskId}/decompose`);
+      } else {
+        navigate('/');
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setSaving(false);
     }
   };
+
+  const handleStop = () => handleComplete(false);
 
   const handleCancel = () => {
     setIsActive(false);
@@ -146,9 +198,9 @@ export default function FocusMode() {
           <button onClick={() => navigate(-1)} className="p-3 rounded-full bg-white shadow-sm border border-[#E0E3DB] hover:bg-[#FBFDF8] transition-colors">
             <ArrowLeft className="w-6 h-6 text-[#1A1C19]" />
           </button>
-          {task && (
-            <div className="text-[#1A1C19] font-bold px-4 py-2 bg-white shadow-sm border border-[#E0E3DB] rounded-full">
-              {task.title}
+          {(task || step) && (
+            <div className="text-[#1A1C19] font-bold px-4 py-2 bg-white shadow-sm border border-[#E0E3DB] rounded-full max-w-sm truncate text-center">
+              {step ? step.title : task?.title}
             </div>
           )}
         </header>
@@ -225,7 +277,7 @@ export default function FocusMode() {
                 </button>
 
                 <button
-                  onClick={handleComplete}
+                  onClick={() => handleComplete(true)}
                   disabled={saving}
                   className="w-16 h-16 rounded-full bg-white shadow-sm border border-[#E0E3DB] text-[#3A693A] flex items-center justify-center hover:bg-[#FBFDF8] transition-colors disabled:opacity-50"
                 >

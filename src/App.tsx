@@ -8,6 +8,7 @@ import VisualTimeline from './components/VisualTimeline';
 import MemoryDock from './components/MemoryDock';
 import AICoach from './components/AICoach';
 import Insights from './components/Insights';
+import CompletedTasks from './components/CompletedTasks';
 import AuthProvider from './components/AuthProvider';
 import Layout from './components/Layout';
 
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/memory-dock" element={<MemoryDock />} />
             <Route path="/coach" element={<AICoach />} />
             <Route path="/insights" element={<Insights />} />
+            <Route path="/completed" element={<CompletedTasks />} />
           </Routes>
         </Layout>
       </AuthProvider>

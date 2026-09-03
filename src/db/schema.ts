@@ -9,17 +9,6 @@ export const profiles = pgTable('profiles', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-export const userPreferences = pgTable('user_preferences', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull().unique(),
-  theme: text('theme').default('light'),
-  focusDuration: integer('focus_duration').default(25),
-  shortBreakDuration: integer('short_break_duration').default(5),
-  longBreakDuration: integer('long_break_duration').default(15),
-  reducedMotion: boolean('reduced_motion').default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
 export const tasks = pgTable('tasks', {
   id: serial('id').primaryKey(),
   userId: text('user_id').references(() => profiles.uid).notNull(),
@@ -72,49 +61,6 @@ export const focusSessions = pgTable('focus_sessions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
-export const reminders = pgTable('reminders', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull(),
-  title: text('title').notNull(),
-  triggerTime: timestamp('trigger_time').notNull(),
-  isAcknowledged: boolean('is_acknowledged').default(false),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-export const dailyPlans = pgTable('daily_plans', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull(),
-  date: text('date').notNull(), // YYYY-MM-DD
-  planData: jsonb('plan_data').notNull(),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-export const routines = pgTable('routines', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull(),
-  title: text('title').notNull(),
-  timeOfDay: text('time_of_day'), // morning, evening, etc.
-  steps: jsonb('steps'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-export const energyCheckins = pgTable('energy_checkins', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull(),
-  level: integer('level').notNull(), // 1-10
-  notes: text('notes'),
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
-export const distractionEvents = pgTable('distraction_events', {
-  id: serial('id').primaryKey(),
-  userId: text('user_id').references(() => profiles.uid).notNull(),
-  focusSessionId: integer('focus_session_id').references(() => focusSessions.id),
-  description: text('description'),
-  duration: integer('duration'), // in minutes
-  createdAt: timestamp('created_at').defaultNow(),
-});
-
 export const aiInteractions = pgTable('ai_interactions', {
   id: serial('id').primaryKey(),
   userId: text('user_id').references(() => profiles.uid).notNull(),
@@ -126,19 +72,10 @@ export const aiInteractions = pgTable('ai_interactions', {
 
 // Relationships
 export const profilesRelations = relations(profiles, ({ many, one }) => ({
-  preferences: one(userPreferences, {
-    fields: [profiles.uid],
-    references: [userPreferences.userId],
-  }),
   tasks: many(tasks),
   brainDumps: many(brainDumps),
   memoryItems: many(memoryItems),
   focusSessions: many(focusSessions),
-  reminders: many(reminders),
-  dailyPlans: many(dailyPlans),
-  routines: many(routines),
-  energyCheckins: many(energyCheckins),
-  distractionEvents: many(distractionEvents),
   aiInteractions: many(aiInteractions),
 }));
 
@@ -167,5 +104,4 @@ export const focusSessionsRelations = relations(focusSessions, ({ one, many }) =
     fields: [focusSessions.taskId],
     references: [tasks.id],
   }),
-  distractions: many(distractionEvents),
 }));

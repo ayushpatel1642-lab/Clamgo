@@ -1,14 +1,15 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Brain, LayoutList, Clock, Info, BotMessageSquare } from 'lucide-react';
+import { Home, Brain, LayoutList, Clock, Info, BotMessageSquare, BarChart3 } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const navItems = [
     { to: '/', icon: Home, label: 'Home' },
-    { to: '/brain-dump', icon: Brain, label: 'Brain Dump' },
+    { to: '/brain-dump', icon: Brain, label: 'Dump' },
     { to: '/timeline', icon: Clock, label: 'Timeline' },
     { to: '/memory-dock', icon: LayoutList, label: 'Later' },
+    { to: '/insights', icon: BarChart3, label: 'Insights' },
     { to: '/coach', icon: BotMessageSquare, label: 'Coach' },
   ];
 

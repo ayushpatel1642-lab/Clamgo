@@ -53,7 +53,7 @@ export default function AICoach() {
   };
 
   return (
-    <div className="p-6 md:p-12 max-w-2xl mx-auto w-full h-screen flex flex-col pt-4">
+    <div className="p-6 md:p-12 max-w-2xl mx-auto w-full h-[calc(100vh-100px)] md:h-screen flex flex-col pt-4">
       <header className="mb-6 shrink-0">
         <h1 className="text-3xl font-bold text-[#191C19] mb-2 flex items-center gap-3">
           <BotMessageSquare className="w-8 h-8 text-[#3A693A]" />

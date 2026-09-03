@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Play, BrainCircuit, ListTodo, BotMessageSquare, Sparkles, Plus, Loader2 } from 'lucide-react';
+import { Play, BrainCircuit, ListTodo, BotMessageSquare, Sparkles, Plus, Loader2, CheckCircle } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 
 interface Task {
@@ -170,7 +170,7 @@ export default function HomeDashboard() {
       {/* Quick Access Grid */}
       <section>
         <h2 className="text-[10px] font-bold tracking-widest text-[#424940] uppercase mb-4 opacity-60">Quick Access</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Link to="/brain-dump" className="bg-[#FBFDF8] p-5 rounded-2xl border border-[#E0E3DB] shadow-sm hover:border-[#A3C9A3] hover:shadow-md transition-all group flex flex-col items-center text-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#EDF1E9] flex items-center justify-center group-hover:scale-110 transition-transform">
               <BrainCircuit className="w-6 h-6 text-[#3A693A]" />
@@ -185,7 +185,14 @@ export default function HomeDashboard() {
             <span className="font-bold text-xs text-[#424940]">Later</span>
           </Link>
 
-          <Link to="/coach" className="bg-[#FBFDF8] p-5 rounded-2xl border border-[#E0E3DB] shadow-sm hover:border-[#A3C9A3] hover:shadow-md transition-all group flex flex-col items-center text-center gap-3 col-span-2 md:col-span-1">
+          <Link to="/completed" className="bg-[#FBFDF8] p-5 rounded-2xl border border-[#E0E3DB] shadow-sm hover:border-[#A3C9A3] hover:shadow-md transition-all group flex flex-col items-center text-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#EDF1E9] flex items-center justify-center group-hover:scale-110 transition-transform">
+              <CheckCircle className="w-6 h-6 text-[#3A693A]" />
+            </div>
+            <span className="font-bold text-xs text-[#424940]">Completed</span>
+          </Link>
+
+          <Link to="/coach" className="bg-[#FBFDF8] p-5 rounded-2xl border border-[#E0E3DB] shadow-sm hover:border-[#A3C9A3] hover:shadow-md transition-all group flex flex-col items-center text-center gap-3">
             <div className="w-12 h-12 rounded-xl bg-[#EDF1E9] flex items-center justify-center group-hover:scale-110 transition-transform">
               <BotMessageSquare className="w-6 h-6 text-[#3A693A]" />
             </div>

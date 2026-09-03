@@ -106,7 +106,7 @@ export default function MemoryDock() {
           {items.map(item => (
             <div key={item.id} className="bg-[#EDF1E9] p-5 rounded-2xl border border-[#DDE5D9] shadow-sm group">
               <p className="text-[#101F10] whitespace-pre-wrap font-medium">{item.content}</p>
-              <div className="mt-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="mt-4 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <span className="text-xs text-[#3A693A] font-bold uppercase tracking-wider">{item.type}</span>
                 <button 
                   onClick={() => handleDelete(item.id)}

@@ -68,6 +68,25 @@ export default function TaskDecomposer() {
     }
   };
 
+  const handleToggleStep = async (stepId: number, isCompleted: boolean) => {
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/tasks/${taskId}/steps/${stepId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ isCompleted })
+      });
+      if (res.ok) {
+        setSteps(steps.map(s => s.id === stepId ? { ...s, isCompleted } : s));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   if (loading) {
     return <div className="p-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-[#E0E3DB]" /></div>;
   }
@@ -133,12 +152,15 @@ export default function TaskDecomposer() {
               {steps.map((step, idx) => (
                 <div 
                   key={step.id} 
-                  className={`flex items-center gap-4 p-4 rounded-2xl border ${step.isCompleted ? 'bg-[#F4F5F2] border-[#E0E3DB] opacity-60' : 'bg-[#FBFDF8] border-[#E0E3DB]'}`}
+                  className={`flex items-center gap-4 p-4 rounded-2xl border transition-colors ${step.isCompleted ? 'bg-[#F4F5F2] border-[#E0E3DB] opacity-60' : 'bg-[#FBFDF8] border-[#E0E3DB] hover:border-[#A3C9A3]'}`}
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#EDF1E9] flex items-center justify-center text-sm font-bold text-[#424940] shrink-0">
-                    {idx + 1}
-                  </div>
-                  <div className="flex-1">
+                  <button 
+                    onClick={() => handleToggleStep(step.id, !step.isCompleted)}
+                    className={`w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors ${step.isCompleted ? 'bg-[#3A693A] border-[#3A693A]' : 'bg-transparent border-[#A3C9A3] hover:border-[#3A693A]'}`}
+                  >
+                    {step.isCompleted && <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                  </button>
+                  <div className="flex-1 cursor-pointer" onClick={() => handleToggleStep(step.id, !step.isCompleted)}>
                     <h4 className={`font-bold ${step.isCompleted ? 'text-[#424940] line-through' : 'text-[#101F10]'}`}>
                       {step.title}
                     </h4>

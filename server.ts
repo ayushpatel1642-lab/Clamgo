@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { db } from "./src/db/index.ts";
-import { profiles, tasks, taskSteps, brainDumps, memoryItems, focusSessions, reminders, dailyPlans, routines, energyCheckins, distractionEvents, aiInteractions } from "./src/db/schema.ts";
+import { profiles, tasks, taskSteps, brainDumps, memoryItems, focusSessions, aiInteractions } from "./src/db/schema.ts";
 import { eq, desc, and } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
@@ -119,8 +119,27 @@ Output strict JSON only, using this schema:
         userId: uid,
         rawText,
         organizedData,
-        isProcessed: true
+        isProcessed: false // Not yet confirmed
       }).returning();
+
+      res.json({ success: true, dumpId: dumpResult[0].id, organizedData });
+    } catch (error: any) {
+      console.error("Brain dump process error", error);
+      res.status(500).json({ error: "Failed to process brain dump" });
+    }
+  });
+
+  app.post("/api/braindump/:id/confirm", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const dumpId = parseInt(req.params.id);
+      const { organizedData } = req.body;
+      const uid = req.user!.uid;
+
+      // Verify ownership
+      const dump = await db.select().from(brainDumps).where(and(eq(brainDumps.id, dumpId), eq(brainDumps.userId, uid))).limit(1);
+      if (dump.length === 0) {
+        return res.status(404).json({ error: "Brain dump not found" });
+      }
 
       // Create tasks
       if (organizedData.tasks && organizedData.tasks.length > 0) {
@@ -152,11 +171,13 @@ Output strict JSON only, using this schema:
         }));
         await db.insert(memoryItems).values(remindersToInsert);
       }
+      
+      await db.update(brainDumps).set({ isProcessed: true, organizedData }).where(eq(brainDumps.id, dumpId));
 
-      res.json({ success: true, dumpId: dumpResult[0].id });
+      res.json({ success: true });
     } catch (error: any) {
-      console.error("Brain dump process error", error);
-      res.status(500).json({ error: "Failed to process brain dump" });
+      console.error("Brain dump confirm error", error);
+      res.status(500).json({ error: "Failed to confirm brain dump" });
     }
   });
 
@@ -192,6 +213,28 @@ Output strict JSON only, using this schema:
       res.json(result[0]);
     } catch (error: any) {
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  app.put("/api/tasks/:taskId/steps/:stepId", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const taskId = parseInt(req.params.taskId);
+      const stepId = parseInt(req.params.stepId);
+      const { isCompleted } = req.body;
+      
+      // Verify task belongs to user
+      const taskResult = await db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.userId, req.user!.uid))).limit(1);
+      if (taskResult.length === 0) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      const result = await db.update(taskSteps)
+        .set({ isCompleted })
+        .where(and(eq(taskSteps.id, stepId), eq(taskSteps.taskId, taskId)))
+        .returning();
+      res.json(result[0]);
+    } catch (error: any) {
+      res.status(500).json({ error: "Failed to update step" });
     }
   });
 

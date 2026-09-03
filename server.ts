@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { db } from "./src/db/index.ts";
+import { initializeDatabase } from "./src/db/migrate.ts";
 import { profiles, tasks, taskSteps, brainDumps, memoryItems, focusSessions, aiInteractions, reminders } from "./src/db/schema.ts";
 import { eq, desc, asc, and } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
@@ -38,9 +39,32 @@ async function generateContentWithRetry(request: any, maxRetries = 5): Promise<a
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+
+  // Initialize database tables non-blocking so server binds to port 3000 instantly
+  let dbReady = false;
+  const dbInitPromise = initializeDatabase()
+    .then(() => {
+      dbReady = true;
+      console.log("Database schema initialized and ready.");
+    })
+    .catch((err) => {
+      console.error("Database initialization warning:", err);
+      // Mark as ready so requests can still attempt queries
+      dbReady = true;
+    });
 
   app.use(express.json());
+
+  // API database readiness check - ensures API endpoints wait until schema is ready
+  app.use(async (req, res, next) => {
+    if (req.path.startsWith('/api/') && req.path !== '/api/health') {
+      if (!dbReady) {
+        await dbInitPromise;
+      }
+    }
+    next();
+  });
 
   // API routes
   app.get("/api/health", (req, res) => {
@@ -1534,6 +1558,11 @@ Only output valid JSON, no markdown blocks. Do not invent task IDs that are not 
       console.error("AI Plan Day Error:", error);
       res.status(500).json({ error: "Failed to plan day" });
     }
+  });
+
+  // Catch-all 404 handler for API routes so they NEVER fall through to HTML SPA fallback
+  app.all('/api/*', (req, res) => {
+    res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.path}` });
   });
 
   // Vite middleware for development

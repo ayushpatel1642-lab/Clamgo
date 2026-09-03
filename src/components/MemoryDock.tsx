@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { Bookmark, Loader2, Plus, Trash2, Edit2 } from 'lucide-react';
+import { apiFetch, safeJson } from '../lib/api';
 
 export default function MemoryDock() {
   const { getToken } = useAuth();
@@ -18,15 +19,17 @@ export default function MemoryDock() {
   const fetchItems = async () => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/memory-dock', {
+      const res = await apiFetch('/api/memory-dock', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setItems(data);
+        const data = await safeJson<any[]>(res, []);
+        if (Array.isArray(data)) {
+          setItems(data);
+        }
       }
     } catch (e) {
-      console.error(e); toast.error(e.message || "Something went wrong.");
+      console.warn("Could not load memory dock items:", e);
     } finally {
       setLoading(false);
     }

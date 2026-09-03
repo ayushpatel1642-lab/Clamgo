@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from './AuthProvider';
+import { apiFetch, safeJson } from '../lib/api';
 
 export default function ReminderService() {
   const { getToken, user } = useAuth();
@@ -27,12 +28,14 @@ export default function ReminderService() {
         const token = await getToken();
         if (!token) return;
         
-        const res = await fetch('/api/reminders/due', {
-          headers: { 'Authorization': `Bearer ${token}` }
+        const res = await apiFetch('/api/reminders/due', {
+          headers: { 
+            'Authorization': `Bearer ${token}`
+          }
         });
         
         if (res.ok) {
-          const actuallyDue = await res.json();
+          const actuallyDue = await safeJson<any[]>(res, []);
           if (Array.isArray(actuallyDue)) {
             actuallyDue.forEach((r: any) => {
               if (!deliveredIdsRef.current.has(r.id)) {
@@ -52,12 +55,12 @@ export default function ReminderService() {
                     label: 'Got it',
                     onClick: async () => {
                       try {
-                        await fetch(`/api/reminders/${r.id}/acknowledge`, { 
+                        await apiFetch(`/api/reminders/${r.id}/acknowledge`, { 
                           method: 'POST', 
                           headers: { 'Authorization': `Bearer ${token}` }
                         });
                       } catch (e) {
-                        console.error("Failed to acknowledge reminder", e);
+                        console.warn("Failed to acknowledge reminder", e);
                       }
                     }
                   },
@@ -68,9 +71,7 @@ export default function ReminderService() {
           }
         }
       } catch (e: any) {
-        if (e.message !== 'Failed to fetch' && !e.message?.includes('Failed to fetch')) {
-          console.error("Reminder check failed", e);
-        }
+        // Silently handle benign polling drops or transient network states
       }
     };
 

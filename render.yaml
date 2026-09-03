@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: serene-focus
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        value: postgresql://neondb_owner:npg_2d0OLBmVuFeU@ep-frosty-sunset-ae9ynw7i-pooler.c-2.us-east-2.aws.neon.tech/neondb?sslmode=require
+      - key: FIREBASE_PROJECT_ID
+        value: serene-focus-36a2a
+      - key: GEMINI_API_KEY
+        sync: false

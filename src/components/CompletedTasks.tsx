@@ -1,7 +1,7 @@
-import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { CheckCircle, Loader2 } from 'lucide-react';
+import { apiFetch, safeJson } from '../lib/api';
 
 export default function CompletedTasks() {
   const { getToken } = useAuth();
@@ -15,16 +15,18 @@ export default function CompletedTasks() {
   const fetchTasks = async () => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/tasks?status=completed', {
+      const res = await apiFetch('/api/tasks?status=completed', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
       if (res.ok) {
-        const data = await res.json();
-        setTasks(data);
+        const data = await safeJson<any[]>(res, []);
+        if (Array.isArray(data)) {
+          setTasks(data);
+        }
       }
     } catch (e) {
-      console.error(e); toast.error(e.message || "Something went wrong.");
+      console.warn("Could not load completed tasks:", e);
     } finally {
       setLoading(false);
     }

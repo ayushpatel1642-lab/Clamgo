@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bell, X, Plus, Trash2, CheckCircle2, Clock, Calendar, RefreshCw, ChevronRight, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from './AuthProvider';
+import { apiFetch, safeJson } from '../lib/api';
 
 export interface ReminderItem {
   id: number;
@@ -64,15 +65,19 @@ export default function RemindersModal({ isOpen, onClose, onRemindersChanged }: 
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await fetch('/api/reminders', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch('/api/reminders', {
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (res.ok) {
-        const data = await res.json();
-        setReminders(data);
+        const data = await safeJson<ReminderItem[]>(res, []);
+        if (Array.isArray(data)) {
+          setReminders(data);
+        }
       }
     } catch (err) {
-      console.error("Failed to fetch reminders", err);
+      console.warn("Could not fetch reminders:", err);
     } finally {
       setLoading(false);
     }

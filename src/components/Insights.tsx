@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthProvider';
 import { toast } from 'sonner';
+import { apiFetch, safeJson } from '../lib/api';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -149,18 +150,15 @@ export default function Insights() {
     if (isManualRefresh) setRefreshing(true);
     try {
       const token = await getToken();
-      const res = await fetch('/api/insights', {
+      const res = await apiFetch('/api/insights', {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      } else {
-        toast.error("Failed to load insights");
+        const json = await safeJson(res, null);
+        if (json) setData(json);
       }
     } catch (e: any) {
-      console.error(e);
-      toast.error(e.message || "Failed to load insights");
+      console.warn("Could not load insights:", e);
     } finally {
       setLoading(false);
       if (isManualRefresh) setRefreshing(false);

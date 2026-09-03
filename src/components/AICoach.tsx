@@ -2,6 +2,7 @@ import { toast } from 'sonner';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from './AuthProvider';
 import { BotMessageSquare, Loader2, Send, Sparkles, RefreshCw, User } from 'lucide-react';
+import { apiFetch, safeJson } from '../lib/api';
 
 export default function AICoach() {
   const { getToken } = useAuth();
@@ -24,12 +25,12 @@ export default function AICoach() {
     const fetchHistory = async () => {
       try {
         const token = await getToken();
-        const res = await fetch('/api/ai/coach/history', {
+        const res = await apiFetch('/api/ai/coach/history', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
-          const data = await res.json();
-          if (data.length > 0) {
+          const data = await safeJson<any[]>(res, []);
+          if (Array.isArray(data) && data.length > 0) {
             setMessages([
               { role: 'assistant', content: "Hi! I'm your AI Coach. How can I help you manage your focus, organize your tasks, or break through feeling overwhelmed today?" },
               ...data
@@ -37,7 +38,7 @@ export default function AICoach() {
           }
         }
       } catch (e) {
-        console.error("Failed to load history", e);
+        console.warn("Could not load history:", e);
       }
     };
     fetchHistory();

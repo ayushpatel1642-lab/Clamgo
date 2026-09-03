@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Play, BrainCircuit, ListTodo, BotMessageSquare, Sparkles, Plus, Loader2, CheckCircle, Trash2, Edit2 , CalendarDays, Bell, ListTree, ChevronDown, ChevronUp, CheckSquare, Square } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import RemindersModal from './RemindersModal';
+import { apiFetch, safeJson } from '../lib/api';
 
 interface TaskStep {
   id: number;
@@ -75,16 +76,20 @@ export default function HomeDashboard() {
     try {
       const token = await getToken();
       if (!token) return;
-      const res = await fetch('/api/reminders', {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const res = await apiFetch('/api/reminders', {
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (res.ok) {
-        const list = await res.json();
-        const active = list.filter((r: any) => !r.isAcknowledged).length;
-        setRemindersCount(active);
+        const list = await safeJson<any[]>(res, []);
+        if (Array.isArray(list)) {
+          const active = list.filter((r: any) => !r.isAcknowledged).length;
+          setRemindersCount(active);
+        }
       }
     } catch (e) {
-      console.error("Failed to fetch reminders count", e);
+      console.warn("Could not fetch reminders count", e);
     }
   };
 
@@ -97,13 +102,13 @@ export default function HomeDashboard() {
     setIsPlanning(true);
     try {
       const token = await getToken();
-      const res = await fetch('/api/ai/plan-day', {
+      const res = await apiFetch('/api/ai/plan-day', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        const data = await res.json();
-        setDayPlan(data);
+        const data = await safeJson(res, null);
+        if (data) setDayPlan(data);
       } else {
         toast.error("Failed to plan day");
       }
@@ -117,40 +122,40 @@ export default function HomeDashboard() {
   const fetchTasks = async () => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/tasks', {
+      const res = await apiFetch('/api/tasks', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        
-        const data = await res.json();
-        const pending = data.filter((t: Task) => t.status === 'pending' || t.status === 'in_progress');
-        const postponed = data.filter((t: Task) => t.status === 'postponed');
-        
-        // Find missed tasks (created before today)
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        
-        const missed = pending.filter(t => new Date(t.createdAt).getTime() < today.getTime());
-        const current = pending.filter(t => new Date(t.createdAt).getTime() >= today.getTime());
-        
-        if (missed.length > 0) {
-           setMissedTasks(missed);
+        const data = await safeJson<Task[]>(res, []);
+        if (Array.isArray(data)) {
+          const pending = data.filter((t: Task) => t.status === 'pending' || t.status === 'in_progress');
+          const postponed = data.filter((t: Task) => t.status === 'postponed');
+          
+          // Find missed tasks (created before today)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          
+          const missed = pending.filter(t => new Date(t.createdAt).getTime() < today.getTime());
+          const current = pending.filter(t => new Date(t.createdAt).getTime() >= today.getTime());
+          
+          if (missed.length > 0) {
+             setMissedTasks(missed);
+          }
+          
+          setTasks(current);
+          setSomedayTasks(postponed);
+          
+          if (current.length > 0) {
+            setActiveTask(current[0]);
+          } else if (missed.length > 0) {
+            setActiveTask(missed[0]);
+          } else {
+            setActiveTask(null);
+          }
         }
-        
-        setTasks(current);
-        setSomedayTasks(postponed);
-        
-        if (current.length > 0) {
-          setActiveTask(current[0]);
-        } else if (missed.length > 0) {
-          setActiveTask(missed[0]);
-        } else {
-          setActiveTask(null);
-        }
-
       }
     } catch (e) {
-      console.error(e);
+      console.warn("Could not fetch tasks:", e);
     } finally {
       setLoading(false);
     }

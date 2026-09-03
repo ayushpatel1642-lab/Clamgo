@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAuth } from './AuthProvider';
+import { apiFetch, safeJson } from '../lib/api';
 import { 
   Clock, 
   Loader2, 
@@ -163,11 +164,11 @@ export default function VisualTimeline() {
   const fetchTimeline = async () => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/tasks?status=pending', {
+      const res = await apiFetch('/api/tasks?status=pending', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
-        const data: TaskItem[] = await res.json();
+        const data: TaskItem[] = await safeJson<TaskItem[]>(res, []);
         setTasks(data);
 
         // Try restoring saved schedule from localStorage
@@ -177,7 +178,7 @@ export default function VisualTimeline() {
             const raw = localStorage.getItem(storageKey);
             if (raw) savedSchedule = JSON.parse(raw);
           } catch (err) {
-            console.error("Error reading saved schedule", err);
+            console.warn("Error reading saved schedule", err);
           }
         }
 
@@ -201,8 +202,7 @@ export default function VisualTimeline() {
         }
       }
     } catch (e: any) {
-      console.error(e); 
-      toast.error(e.message || "Something went wrong.");
+      console.warn("Could not load timeline tasks:", e);
     } finally {
       setLoading(false);
     }

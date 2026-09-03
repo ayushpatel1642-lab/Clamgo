@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
 import { CheckCircle, Loader2 } from 'lucide-react';
@@ -23,7 +24,7 @@ export default function CompletedTasks() {
         setTasks(data);
       }
     } catch (e) {
-      console.error(e); alert(e.message || "Something went wrong.");
+      console.error(e); toast.error(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }

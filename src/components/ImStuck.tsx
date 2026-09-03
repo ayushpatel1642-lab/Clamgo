@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Zap, Brain, BatteryMedium, MessageCircleQuestion } from 'lucide-react';
@@ -26,7 +27,7 @@ export default function ImStuck() {
         setTask(data.task);
       }
     } catch (e) {
-      console.error(e); alert(e.message || "Something went wrong.");
+      console.error(e); toast.error(e.message || "Something went wrong.");
     }
   };
 
@@ -52,7 +53,7 @@ export default function ImStuck() {
         setIntervention(data.intervention);
       }
     } catch (e) {
-      console.error(e); alert(e.message || "Something went wrong.");
+      console.error(e); toast.error(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }

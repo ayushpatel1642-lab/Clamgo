@@ -1,15 +1,15 @@
+import { toast } from 'sonner';
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
-import { Bookmark, Loader2, Plus, Trash2, Undo2 } from 'lucide-react';
+import { Bookmark, Loader2, Plus, Trash2, Edit2 } from 'lucide-react';
 
 export default function MemoryDock() {
   const { getToken } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState('');
-  
-  const [deletedIds, setDeletedIds] = useState<number[]>([]);
-  const [undoTimers, setUndoTimers] = useState<Record<number, NodeJS.Timeout>>({});
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editContent, setEditContent] = useState('');
 
   useEffect(() => {
     fetchItems();
@@ -26,7 +26,7 @@ export default function MemoryDock() {
         setItems(data);
       }
     } catch (e) {
-      console.error(e); alert(e.message || "Something went wrong.");
+      console.error(e); toast.error(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -52,40 +52,63 @@ export default function MemoryDock() {
         setNewItem('');
       }
     } catch (e) {
-      console.error(e); alert(e.message || "Something went wrong.");
+      console.error(e); toast.error(e.message || "Something went wrong.");
     }
   };
 
-  const handleDelete = (id: number) => {
-    setDeletedIds(prev => [...prev, id]);
-    
-    const timer = setTimeout(async () => {
-      try {
-        const token = await getToken();
-        await fetch(`/api/memory-dock/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        setItems(prev => prev.filter(item => item.id !== id));
-        setDeletedIds(prev => prev.filter(x => x !== id));
-      } catch (e) {
-        console.error(e); alert(e.message || "Something went wrong.");
+  const handleDelete = async (id: number) => {
+    try {
+      const token = await getToken();
+      // Optimistic update
+      const previousItems = items;
+      setItems(prev => prev.filter(item => item.id !== id));
+
+      const res = await fetch(`/api/memory-dock/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        setItems(previousItems);
+        throw new Error(errData.error || "Failed to delete item");
       }
-    }, 5000);
-    
-    setUndoTimers(prev => ({ ...prev, [id]: timer }));
+      toast.success("Item removed from Memory Dock");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || "Failed to delete item.");
+    }
   };
 
-  const handleUndo = (id: number) => {
-    if (undoTimers[id]) {
-      clearTimeout(undoTimers[id]);
-      const newTimers = { ...undoTimers };
-      delete newTimers[id];
-      setUndoTimers(newTimers);
+  const handleEdit = (id: number, content: string) => {
+    setEditingId(id);
+    setEditContent(content);
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!editingId || !editContent.trim()) return;
+    try {
+      const token = await getToken();
+      const res = await fetch(`/api/memory-dock/${editingId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: editContent })
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setItems(prev => prev.map(item => item.id === editingId ? updated : item));
+        setEditingId(null);
+      } else {
+        toast.error("Failed to update item");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Something went wrong.");
     }
-    setDeletedIds(prev => prev.filter(x => x !== id));
   };
 
   return (
@@ -121,40 +144,55 @@ export default function MemoryDock() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {items.map(item => {
-            const isDeleting = deletedIds.includes(item.id);
-            return (
-              <div key={item.id} className={`bg-[#EDF1E9] p-5 rounded-2xl border border-[#DDE5D9] shadow-sm group transition-all duration-300 ${isDeleting ? 'opacity-50 scale-95 pointer-events-none' : ''}`}>
-                <p className="text-[#101F10] whitespace-pre-wrap font-medium">{item.content}</p>
-                <div className="mt-4 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                  <span className="text-xs text-[#3A693A] font-bold uppercase tracking-wider">{item.type}</span>
+          {items.map(item => (
+            <div key={item.id} className="bg-[#EDF1E9] p-5 rounded-2xl border border-[#DDE5D9] shadow-sm group transition-all duration-300">
+              <p className="text-[#101F10] whitespace-pre-wrap font-medium">{item.content}</p>
+              <div className="mt-4 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                <span className="text-xs text-[#3A693A] font-bold uppercase tracking-wider">{item.type}</span>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handleEdit(item.id, item.content)}
+                    className="text-[#424940] hover:text-[#3A693A] transition-colors p-1"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
                   <button 
                     onClick={() => handleDelete(item.id)}
-                    className="text-[#424940] hover:text-[#3A693A] transition-colors p-1"
+                    className="text-[#424940] hover:text-red-500 transition-colors p-1"
+                    title="Delete"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       )}
 
-      {/* Undo Toasts */}
-      <div className="fixed bottom-24 md:bottom-12 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50">
-        {deletedIds.map(id => (
-          <div key={id} className="bg-[#191C19] text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-4 text-sm font-bold animate-in fade-in slide-in-from-bottom-5">
-            <span>Item deleted</span>
-            <button 
-              onClick={() => handleUndo(id)}
-              className="text-[#A3C9A3] hover:text-white flex items-center gap-1 transition-colors"
-            >
-              <Undo2 className="w-4 h-4" /> Undo
-            </button>
+      {editingId && (
+        <div className="fixed inset-0 z-50 bg-[#F4F5F2]/95 backdrop-blur-sm p-6 flex flex-col items-center justify-center">
+          <div className="w-full max-w-lg bg-white p-8 rounded-[32px] border border-[#E0E3DB] shadow-lg flex flex-col gap-6">
+             <h2 className="text-2xl font-bold text-[#191C19]">Edit Thought</h2>
+             <textarea
+               value={editContent}
+               onChange={(e) => setEditContent(e.target.value)}
+               className="w-full p-4 rounded-xl bg-[#FBFDF8] border border-[#E0E3DB] focus:border-[#3A693A] outline-none text-[#101F10] min-h-[100px]"
+               autoFocus
+               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSaveEdit(); } }}
+             />
+             <div className="flex gap-4 mt-2">
+                <button onClick={() => setEditingId(null)} className="px-6 py-3 rounded-full font-bold text-[#424940] bg-[#F4F5F2] hover:bg-[#E0E3DB] transition-colors">
+                  Cancel
+                </button>
+                <button onClick={handleSaveEdit} className="flex-1 bg-[#3A693A] text-white py-3 px-6 rounded-full font-bold flex items-center justify-center gap-2 hover:bg-[#2A4C2A] transition-colors">
+                  Save Changes
+                </button>
+             </div>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

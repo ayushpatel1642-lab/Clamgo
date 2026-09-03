@@ -1,11 +1,20 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup } from 'firebase/auth';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { User, signInWithPopup } from 'firebase/auth';
 import { auth, googleAuthProvider } from '../lib/firebase';
+import { toast } from 'sonner';
+
+interface AppUser {
+  uid: string;
+  email?: string | null;
+  displayName?: string | null;
+  getIdToken: () => Promise<string>;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   signIn: () => Promise<void>;
+  continueAsGuest: () => void;
   signOut: () => Promise<void>;
   getToken: () => Promise<string | null>;
 }
@@ -14,65 +23,154 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   signIn: async () => {},
+  continueAsGuest: () => {},
   signOut: async () => {},
   getToken: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
 
+const GUEST_STORAGE_KEY = 'serene_guest_active';
+
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-      setUser(user);
-      
-      if (user) {
-        // Sync user with backend
-        try {
-          const token = await user.getIdToken();
-          await fetch('/api/users/sync', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`
-            }
-          });
-        } catch (error) {
-          console.error("Failed to sync user", error);
-        }
-      }
-      
-      setLoading(false);
-    });
+  const createGuestUser = (): AppUser => ({
+    uid: 'demo-guest-user',
+    email: 'guest@serenefocus.app',
+    displayName: 'Guest Friend',
+    getIdToken: async () => 'demo-token',
+  });
 
-    return unsubscribe;
+  const continueAsGuest = useCallback(() => {
+    try {
+      localStorage.setItem(GUEST_STORAGE_KEY, 'true');
+    } catch {
+      // Ignore storage errors in restricted iframes
+    }
+    const guest = createGuestUser();
+    setUser(guest);
+    setLoading(false);
   }, []);
 
-  const signIn = async () => {
+  useEffect(() => {
+    let mounted = true;
+
+    // Check if user was previously in guest mode
+    let isGuestSaved = false;
+    try {
+      isGuestSaved = localStorage.getItem(GUEST_STORAGE_KEY) === 'true';
+    } catch {
+      // Ignore
+    }
+
+    if (isGuestSaved && !auth.currentUser) {
+      setUser(createGuestUser());
+      setLoading(false);
+    }
+
+    // Safety fallback: Never leave the screen stuck loading indefinitely
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        setLoading(false);
+      }
+    }, 2000);
+
+    const unsubscribe = auth.onAuthStateChanged(
+      (firebaseUser) => {
+        if (!mounted) return;
+        clearTimeout(safetyTimer);
+
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          try {
+            localStorage.removeItem(GUEST_STORAGE_KEY);
+          } catch {
+            // Ignore
+          }
+
+          // Sync user with backend in background
+          firebaseUser.getIdToken().then((token) => {
+            fetch('/api/users/sync', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            }).catch((err) => {
+              console.warn("Failed to sync user with backend:", err);
+            });
+          }).catch(console.warn);
+        } else if (!isGuestSaved) {
+          setUser(null);
+        }
+
+        setLoading(false);
+      },
+      (error) => {
+        console.warn("Firebase auth state listener warning:", error);
+        if (mounted) {
+          clearTimeout(safetyTimer);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+      unsubscribe();
+    };
+  }, []);
+
+  const signIn = useCallback(async () => {
     try {
       await signInWithPopup(auth, googleAuthProvider);
-    } catch (error) {
-      console.error("Error signing in", error);
+      try {
+        localStorage.removeItem(GUEST_STORAGE_KEY);
+      } catch {
+        // Ignore
+      }
+    } catch (error: any) {
+      console.error("Error signing in with Google:", error);
+      if (error?.code === 'auth/popup-blocked' || error?.code === 'auth/cancelled-popup-request') {
+        toast.error("Google sign-in popup was blocked by browser/iframe. You can try 'Continue as Guest' or open in a new window.");
+      } else {
+        toast.error(error?.message || "Sign in failed. You can continue as guest.");
+      }
     }
-  };
+  }, []);
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
+    try {
+      localStorage.removeItem(GUEST_STORAGE_KEY);
+    } catch {
+      // Ignore
+    }
     await auth.signOut();
-  };
+    setUser(null);
+  }, []);
 
-  const getToken = async () => {
-    if (!auth.currentUser) return null;
-    return await auth.currentUser.getIdToken();
-  };
+  const getToken = useCallback(async () => {
+    if (user) {
+      return await user.getIdToken();
+    }
+    if (auth.currentUser) {
+      return await auth.currentUser.getIdToken();
+    }
+    return null;
+  }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, getToken }}>
+    <AuthContext.Provider value={{ user, loading, signIn, continueAsGuest, signOut, getToken }}>
       {loading ? (
         <div className="min-h-screen flex items-center justify-center bg-[#F4F5F2]">
           <div className="animate-pulse flex flex-col items-center">
-            <div className="w-12 h-12 rounded-full bg-[#E0E3DB] mb-4"></div>
-            <div className="text-[#424940]">Loading your space...</div>
+            <div className="w-12 h-12 rounded-full bg-[#E0E3DB] mb-4 flex items-center justify-center">
+              <div className="w-6 h-6 rounded-full bg-[#3A693A]/30"></div>
+            </div>
+            <div className="text-[#424940] font-medium">Loading your space...</div>
           </div>
         </div>
       ) : user ? (
@@ -87,12 +185,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             </div>
             <h1 className="text-2xl font-bold text-[#191C19] mb-2">Serene Focus</h1>
             <p className="text-[#424940] mb-8">Your ADHD executive-function assistant. Let's get things done, gently.</p>
-            <button
-              onClick={signIn}
-              className="w-full py-4 bg-[#3A693A] text-white rounded-2xl font-bold text-lg shadow-lg shadow-[#3A693A]/20 hover:scale-[1.02] active:scale-95 transition-transform"
-            >
-              Sign in with Google
-            </button>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={signIn}
+                className="w-full py-4 bg-[#3A693A] text-white rounded-2xl font-bold text-lg shadow-lg shadow-[#3A693A]/20 hover:scale-[1.02] active:scale-95 transition-transform cursor-pointer"
+              >
+                Sign in with Google
+              </button>
+              <button
+                onClick={continueAsGuest}
+                className="w-full py-3 bg-[#EDF1E9] text-[#3A693A] rounded-2xl font-semibold text-base hover:bg-[#DDE5D9] transition-colors cursor-pointer"
+              >
+                Continue as Guest / Try Demo
+              </button>
+            </div>
           </div>
         </div>
       )}

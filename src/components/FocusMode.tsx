@@ -1,6 +1,7 @@
+import { toast } from 'sonner';
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Play, Pause, Square, ArrowLeft, CheckCircle2, Loader2, MessageCircleQuestion } from 'lucide-react';
+import { Play, Pause, Square, ArrowLeft, CheckCircle2, Loader2, MessageCircleQuestion, Lightbulb } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import confetti from 'canvas-confetti';
 
@@ -24,6 +25,13 @@ export default function FocusMode() {
   const [stuckLoading, setStuckLoading] = useState(false);
   const [stuckReason, setStuckReason] = useState('');
   const [stuckIntervention, setStuckIntervention] = useState('');
+
+  const [showParkModal, setShowParkModal] = useState(false);
+  const [parkInput, setParkInput] = useState('');
+  const [parkLoading, setParkLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [workedMinutes, setWorkedMinutes] = useState(0);
+
   
   const endTimeRef = useRef<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,6 +102,7 @@ export default function FocusMode() {
     setIsPaused(true);
   };
 
+  
   const handleComplete = async (markDone: boolean = false) => {
     setIsActive(false);
     setIsPaused(false);
@@ -102,43 +111,25 @@ export default function FocusMode() {
     try {
       const token = await getToken();
       const actualDuration = Math.ceil((duration * 60 - timeLeft) / 60);
+      setWorkedMinutes(actualDuration);
       
       const promises: Promise<any>[] = [
         fetch('/api/focus-sessions', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            taskId: taskId ? parseInt(taskId) : null,
-            duration,
-            actualDuration,
-            completed: timeLeft === 0
-          })
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ taskId: taskId ? parseInt(taskId) : null, duration, actualDuration, completed: timeLeft === 0 || markDone })
         })
       ];
-
       const shouldMarkComplete = markDone || timeLeft === 0;
-
       if (shouldMarkComplete) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ['#3A693A', '#84A98C', '#A3C9A3']
-        });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 }, colors: ['#3A693A', '#84A98C', '#A3C9A3'] });
       }
-
       if (shouldMarkComplete && taskId) {
         if (stepId) {
           promises.push(
             fetch(`/api/tasks/${taskId}/steps/${stepId}`, {
               method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ isCompleted: true })
             })
           );
@@ -146,10 +137,7 @@ export default function FocusMode() {
           promises.push(
             fetch(`/api/tasks/${taskId}`, {
               method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
               body: JSON.stringify({ status: 'completed' })
             })
           );
@@ -157,18 +145,15 @@ export default function FocusMode() {
       }
       
       await Promise.all(promises);
-      
-      if (taskId && stepId) {
-        navigate(`/task-decomposer/${taskId}`);
-      } else {
-        navigate('/');
-      }
+      setShowSuccessModal(true);
     } catch (error) {
       console.error(error);
+      toast.error("Failed to save session");
     } finally {
       setSaving(false);
     }
   };
+
 
   const handleStop = () => handleComplete(false);
 
@@ -187,6 +172,32 @@ export default function FocusMode() {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  
+  const handleParkThought = async () => {
+    if (!parkInput.trim()) return;
+    setParkLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/memory-dock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ content: parkInput })
+      });
+      if (res.ok) {
+        toast.success("Thought parked in Memory Dock");
+        setShowParkModal(false);
+        setParkInput('');
+        if (showParkModal) setIsPaused(false);
+      } else {
+        toast.error("Failed to park thought");
+      }
+    } catch(e) {
+      toast.error("Network error");
+    } finally {
+      setParkLoading(false);
+    }
   };
 
   const handleStuck = async (reason: string) => {
@@ -336,16 +347,28 @@ export default function FocusMode() {
           </div>
           
           {isActive && (
-            <button
-              onClick={() => {
-                setShowStuckModal(true);
-                setIsPaused(true);
-              }}
-              className="mt-8 flex items-center gap-2 text-xs text-[#424940] hover:text-[#101F10] font-bold px-4 py-2 bg-white/50 rounded-full transition-colors"
-            >
-              <MessageCircleQuestion className="w-4 h-4" />
-              I'm stuck
-            </button>
+            <>
+              <button
+                onClick={() => {
+                  setShowParkModal(true);
+                  setIsPaused(true);
+                }}
+                className="mt-8 flex items-center gap-2 text-xs text-[#424940] hover:text-[#101F10] font-bold px-4 py-2 bg-white/50 rounded-full transition-colors"
+              >
+                <Lightbulb className="w-4 h-4" />
+                Park a thought
+              </button>
+              <button
+                onClick={() => {
+                  setShowStuckModal(true);
+                  setIsPaused(true);
+                }}
+                className="mt-4 flex items-center gap-2 text-xs text-[#424940] hover:text-[#101F10] font-bold px-4 py-2 bg-white/50 rounded-full transition-colors"
+              >
+                <MessageCircleQuestion className="w-4 h-4" />
+                I'm stuck
+              </button>
+            </>
           )}
         </div>
       </div>

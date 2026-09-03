@@ -1,6 +1,6 @@
 {
   "name": "Serene Focus",
   "description": "An ADHD executive-function assistant to manage overwhelm and focus.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

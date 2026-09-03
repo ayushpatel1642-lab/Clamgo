@@ -66,6 +66,7 @@ export const reminders = pgTable('reminders', {
   userId: text('user_id').references(() => profiles.uid).notNull(),
   title: text('title').notNull(),
   triggerTime: timestamp('trigger_time').notNull(),
+  isDelivered: boolean('is_delivered').default(false),
   isAcknowledged: boolean('is_acknowledged').default(false),
   createdAt: timestamp('created_at').defaultNow(),
 });

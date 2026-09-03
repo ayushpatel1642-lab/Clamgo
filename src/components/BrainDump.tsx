@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Sparkles, ArrowRight, Loader2, CheckCircle2, ListTodo, Bookmark, Bell, Edit2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Sparkles, ArrowRight, Loader2, CheckCircle2, ListTodo, Bookmark, Bell, Edit2, Mic, Square } from 'lucide-react';
 import { useAuth } from './AuthProvider';
 import { useNavigate } from 'react-router-dom';
 
@@ -8,9 +8,65 @@ export default function BrainDump() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [reviewData, setReviewData] = useState<any>(null);
   const [dumpId, setDumpId] = useState<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   
   const { getToken } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      
+      recognitionRef.current.onresult = (event: any) => {
+        let currentTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          currentTranscript += event.results[i][0].transcript;
+        }
+        // Append to existing text but avoid duplicating previous final results if we manage state carefully.
+        // For simplicity, we just use the final result to update the state when continuous is true.
+        // Actually, a simpler way is to just append the final results.
+      };
+
+      recognitionRef.current.onresult = (event: any) => {
+        let finalTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            finalTranscript += event.results[i][0].transcript + ' ';
+          }
+        }
+        if (finalTranscript) {
+          setText(prev => prev + (prev.endsWith(' ') || prev === '' ? '' : ' ') + finalTranscript);
+        }
+      };
+
+      recognitionRef.current.onerror = (event: any) => {
+        console.error("Speech recognition error", event.error);
+        setIsListening(false);
+      };
+      
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+      };
+    }
+  }, []);
+
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+    } else {
+      try {
+        recognitionRef.current?.start();
+        setIsListening(true);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
 
   const handleProcess = async () => {
     if (!text.trim()) return;
@@ -163,12 +219,22 @@ export default function BrainDump() {
       </header>
       
       <div className="flex-1 flex flex-col gap-4 mb-20">
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="I need to finish the math assignment but I don't know where to start, also remind me to call mom at 5pm and buy milk..."
-          className="flex-1 w-full p-6 rounded-[32px] bg-[#FBFDF8] border border-[#E0E3DB] shadow-sm focus:border-[#3A693A] focus:ring focus:ring-[#DDE5D9] focus:ring-opacity-50 transition-all resize-none text-[#101F10] text-lg outline-none"
-        />
+        <div className="relative flex-1 flex flex-col">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="I need to finish the math assignment but I don't know where to start, also remind me to call mom at 5pm and buy milk..."
+            className="flex-1 w-full p-6 pb-20 rounded-[32px] bg-[#FBFDF8] border border-[#E0E3DB] shadow-sm focus:border-[#3A693A] focus:ring focus:ring-[#DDE5D9] focus:ring-opacity-50 transition-all resize-none text-[#101F10] text-lg outline-none"
+          />
+          {recognitionRef.current && (
+            <button
+              onClick={toggleListening}
+              className={`absolute bottom-6 right-6 p-4 rounded-full shadow-lg transition-all ${isListening ? 'bg-red-500 text-white animate-pulse' : 'bg-[#EDF1E9] text-[#3A693A] hover:bg-[#DDE5D9]'}`}
+            >
+              {isListening ? <Square className="w-6 h-6 fill-current" /> : <Mic className="w-6 h-6" />}
+            </button>
+          )}
+        </div>
         
         <button
           onClick={handleProcess}

@@ -61,6 +61,15 @@ export const focusSessions = pgTable('focus_sessions', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+export const reminders = pgTable('reminders', {
+  id: serial('id').primaryKey(),
+  userId: text('user_id').references(() => profiles.uid).notNull(),
+  title: text('title').notNull(),
+  triggerTime: timestamp('trigger_time').notNull(),
+  isAcknowledged: boolean('is_acknowledged').default(false),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
 export const aiInteractions = pgTable('ai_interactions', {
   id: serial('id').primaryKey(),
   userId: text('user_id').references(() => profiles.uid).notNull(),
@@ -76,6 +85,7 @@ export const profilesRelations = relations(profiles, ({ many, one }) => ({
   brainDumps: many(brainDumps),
   memoryItems: many(memoryItems),
   focusSessions: many(focusSessions),
+  reminders: many(reminders),
   aiInteractions: many(aiInteractions),
 }));
 

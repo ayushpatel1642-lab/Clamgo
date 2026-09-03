@@ -13,6 +13,7 @@ interface Task {
 export default function HomeDashboard() {
   const { getToken, user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [somedayTasks, setSomedayTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   
@@ -28,14 +29,19 @@ export default function HomeDashboard() {
   const fetchTasks = async () => {
     try {
       const token = await getToken();
-      const res = await fetch('/api/tasks?status=pending', {
+      const res = await fetch('/api/tasks', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
         const data = await res.json();
-        setTasks(data);
-        if (data.length > 0) {
-          setActiveTask(data[0]); // Just pick the first pending one for now as "today's important task"
+        const pending = data.filter((t: Task) => t.status === 'pending' || t.status === 'in_progress');
+        const postponed = data.filter((t: Task) => t.status === 'postponed');
+        
+        setTasks(pending);
+        setSomedayTasks(postponed);
+        
+        if (pending.length > 0) {
+          setActiveTask(pending[0]);
         } else {
           setActiveTask(null);
         }
@@ -75,6 +81,40 @@ export default function HomeDashboard() {
       console.error(e);
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handlePostpone = async (taskId: number) => {
+    try {
+      const token = await getToken();
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'postponed' })
+      });
+      fetchTasks();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleActivate = async (taskId: number) => {
+    try {
+      const token = await getToken();
+      await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: 'pending' })
+      });
+      fetchTasks();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -166,6 +206,47 @@ export default function HomeDashboard() {
           </div>
         </form>
       </section>
+
+      {/* Today's Tasks List */}
+      {tasks.length > 1 && (
+        <section className="mb-12">
+          <h2 className="text-[10px] font-bold tracking-widest text-[#424940] uppercase mb-4 opacity-60">Today's Tasks</h2>
+          <div className="flex flex-col gap-3">
+            {tasks.slice(1).map(task => (
+              <div key={task.id} className="bg-white p-4 rounded-2xl border border-[#E0E3DB] shadow-sm flex items-center justify-between group">
+                <span className="font-medium text-[#101F10]">{task.title}</span>
+                <div className="flex gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handlePostpone(task.id)} className="text-xs px-3 py-1.5 rounded-full border border-[#E0E3DB] hover:bg-[#F4F5F2] text-[#424940] transition-colors">
+                    Later (Someday)
+                  </button>
+                  <Link to={`/focus-mode/${task.id}`} className="text-xs px-3 py-1.5 rounded-full bg-[#3A693A] text-white hover:bg-[#3A693A]/90 transition-colors flex items-center gap-1">
+                    <Play className="w-3 h-3 fill-current" /> Focus
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Someday Tasks */}
+      {somedayTasks.length > 0 && (
+        <section className="mb-12">
+          <h2 className="text-[10px] font-bold tracking-widest text-[#424940] uppercase mb-4 opacity-60">Someday (Postponed)</h2>
+          <div className="flex flex-col gap-3">
+            {somedayTasks.map(task => (
+              <div key={task.id} className="bg-white/50 p-4 rounded-2xl border border-dashed border-[#E0E3DB] flex items-center justify-between group">
+                <span className="font-medium text-[#424940]">{task.title}</span>
+                <div className="flex gap-2 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => handleActivate(task.id)} className="text-xs px-3 py-1.5 rounded-full border border-[#3A693A] text-[#3A693A] hover:bg-[#EDF1E9] transition-colors">
+                    Move to Today
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Quick Access Grid */}
       <section>

@@ -11,11 +11,13 @@ import Insights from './components/Insights';
 import CompletedTasks from './components/CompletedTasks';
 import AuthProvider from './components/AuthProvider';
 import Layout from './components/Layout';
+import ReminderService from './components/ReminderService';
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <ReminderService />
         <Layout>
           <Routes>
             <Route path="/" element={<HomeDashboard />} />

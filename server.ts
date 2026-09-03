@@ -3,7 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { requireAuth, AuthRequest } from "./src/middleware/auth.ts";
 import { db } from "./src/db/index.ts";
-import { profiles, tasks, taskSteps, brainDumps, memoryItems, focusSessions, aiInteractions } from "./src/db/schema.ts";
+import { profiles, tasks, taskSteps, brainDumps, memoryItems, focusSessions, aiInteractions, reminders } from "./src/db/schema.ts";
 import { eq, desc, and } from "drizzle-orm";
 import { GoogleGenAI } from "@google/genai";
 
@@ -51,6 +51,37 @@ async function startServer() {
   });
 
   // Tasks API
+  // Reminders API
+  app.get("/api/reminders/due", requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const uid = req.user!.uid;
+      const now = new Date();
+      // Find unacknowledged reminders where triggerTime <= now
+      const due = await db.select().from(reminders)
+        .where(and(
+          eq(reminders.userId, uid),
+          eq(reminders.isAcknowledged, false)
+        ));
+      
+      const actuallyDue = due.filter(r => new Date(r.triggerTime) <= now);
+
+      // Mark them as acknowledged so we don't notify again
+      if (actuallyDue.length > 0) {
+        const ids = actuallyDue.map(r => r.id);
+        // We have to update them one by one or in a batch if Drizzle supports it. 
+        // Or simply mark all matching as true.
+        for (const r of actuallyDue) {
+          await db.update(reminders).set({ isAcknowledged: true }).where(eq(reminders.id, r.id));
+        }
+      }
+
+      res.json(actuallyDue);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to fetch reminders" });
+    }
+  });
+
   app.get("/api/tasks", requireAuth, async (req: AuthRequest, res) => {
     try {
       const status = req.query.status as string;
@@ -96,10 +127,12 @@ Extract actionable items into a structured JSON format. Categorize them into tas
 Brain dump text:
 "${rawText}"
 
+For reminders, if a time or date is mentioned, parse it into an ISO 8601 UTC timestamp string. If no time is mentioned, set it for 2 hours from now. Today's date/time is ${new Date().toISOString()}.
+
 Output strict JSON only, using this schema:
 {
   "tasks": [{ "title": "...", "description": "...", "estimatedDurationMinutes": 30 }],
-  "reminders": [{ "title": "...", "due": "time/date if specified" }],
+  "reminders": [{ "title": "...", "triggerTime": "ISO timestamp string" }],
   "notes": [{ "content": "..." }]
 }
 `;
@@ -162,14 +195,25 @@ Output strict JSON only, using this schema:
         await db.insert(memoryItems).values(notesToInsert);
       }
 
-      // Reminders could be memory items or actual reminders
+      // Reminders
       if (organizedData.reminders && organizedData.reminders.length > 0) {
-        const remindersToInsert = organizedData.reminders.map((r: any) => ({
-          userId: uid,
-          content: `REMINDER: ${r.title} (Due: ${r.due || 'unknown'})`,
-          type: "reminder"
-        }));
-        await db.insert(memoryItems).values(remindersToInsert);
+        const remindersToInsert = organizedData.reminders.map((r: any) => {
+          let triggerTime = new Date();
+          if (r.triggerTime) {
+            triggerTime = new Date(r.triggerTime);
+            if (isNaN(triggerTime.getTime())) {
+              triggerTime = new Date(Date.now() + 2 * 60 * 60 * 1000); // fallback 2 hrs
+            }
+          } else {
+            triggerTime = new Date(Date.now() + 2 * 60 * 60 * 1000); // fallback 2 hrs
+          }
+          return {
+            userId: uid,
+            title: r.title,
+            triggerTime
+          };
+        });
+        await db.insert(reminders).values(remindersToInsert);
       }
       
       await db.update(brainDumps).set({ isProcessed: true, organizedData }).where(eq(brainDumps.id, dumpId));

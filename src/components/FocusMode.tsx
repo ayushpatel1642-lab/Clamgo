@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Play, Pause, Square, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Play, Pause, Square, ArrowLeft, CheckCircle2, Loader2, MessageCircleQuestion } from 'lucide-react';
 import { useAuth } from './AuthProvider';
+import confetti from 'canvas-confetti';
 
 export default function FocusMode() {
   const { taskId } = useParams();
@@ -17,6 +18,12 @@ export default function FocusMode() {
   const [task, setTask] = useState<any>(null);
   const [step, setStep] = useState<any>(null);
   const [saving, setSaving] = useState(false);
+
+  // Stuck modal state
+  const [showStuckModal, setShowStuckModal] = useState(false);
+  const [stuckLoading, setStuckLoading] = useState(false);
+  const [stuckReason, setStuckReason] = useState('');
+  const [stuckIntervention, setStuckIntervention] = useState('');
   
   const endTimeRef = useRef<number | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,6 +121,15 @@ export default function FocusMode() {
 
       const shouldMarkComplete = markDone || timeLeft === 0;
 
+      if (shouldMarkComplete) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#3A693A', '#84A98C', '#A3C9A3']
+        });
+      }
+
       if (shouldMarkComplete && taskId) {
         if (stepId) {
           promises.push(
@@ -173,6 +189,38 @@ export default function FocusMode() {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  const handleStuck = async (reason: string) => {
+    setStuckReason(reason);
+    setStuckLoading(true);
+    try {
+      const token = await getToken();
+      const res = await fetch('/api/ai/stuck', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ reason, taskTitle: step ? step.title : (task?.title || 'Current task') })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setStuckIntervention(data.advice);
+      }
+    } catch (e) {
+      console.error(e);
+      setStuckIntervention("Take a deep breath. Try breaking this task down into one even smaller step. What's the very next physical action?");
+    } finally {
+      setStuckLoading(false);
+    }
+  };
+
+  const closeStuckModal = () => {
+    setShowStuckModal(false);
+    setStuckIntervention('');
+    setStuckReason('');
+    setIsPaused(false);
+  };
+
   const progress = 100 - ((timeLeft / (duration * 60)) * 100);
 
   return (
@@ -207,7 +255,7 @@ export default function FocusMode() {
 
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="relative w-64 h-64 md:w-80 md:h-80 flex items-center justify-center mb-12 rounded-full bg-gradient-to-br from-[#DDE5D9] to-[#A3C9A3] shadow-2xl border-[8px] border-white/40">
-            <svg className="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none opacity-0">
+            <svg className="absolute inset-0 w-full h-full transform -rotate-90 pointer-events-none">
               {/* Keep SVG for logic but hide it since design doesn't use stroke circle for progress in this exact way, though we could keep a subtle stroke. Let's make it very subtle. */}
               <circle
                 cx="50%"
@@ -286,8 +334,83 @@ export default function FocusMode() {
               </>
             )}
           </div>
+          
+          {isActive && (
+            <button
+              onClick={() => {
+                setShowStuckModal(true);
+                setIsPaused(true);
+              }}
+              className="mt-8 flex items-center gap-2 text-xs text-[#424940] hover:text-[#101F10] font-bold px-4 py-2 bg-white/50 rounded-full transition-colors"
+            >
+              <MessageCircleQuestion className="w-4 h-4" />
+              I'm stuck
+            </button>
+          )}
         </div>
       </div>
+
+      {showStuckModal && (
+        <div className="absolute inset-0 z-50 bg-[#F4F5F2]/95 backdrop-blur-sm p-6 flex flex-col md:p-12 items-center overflow-y-auto">
+          <div className="w-full max-w-xl mx-auto flex flex-col mt-12 mb-12">
+            <header className="mb-8 flex justify-between items-start">
+              <div>
+                <h2 className="text-3xl font-bold text-[#191C19] mb-2">You're stuck. That's okay.</h2>
+                <p className="text-[#424940] text-lg">Let's get you un-stuck. What's the main blocker right now?</p>
+              </div>
+              <button onClick={closeStuckModal} className="p-3 bg-white rounded-full border border-[#E0E3DB]">
+                <Square className="w-4 h-4" />
+              </button>
+            </header>
+
+            {!stuckIntervention ? (
+              <div className="grid gap-3">
+                {[
+                  "I don't know where to start",
+                  "It feels too big / overwhelming",
+                  "I'm too tired / low energy",
+                  "I keep getting distracted",
+                  "I'm feeling anxious about it"
+                ].map(r => (
+                  <button
+                    key={r}
+                    onClick={() => handleStuck(r)}
+                    disabled={stuckLoading}
+                    className="text-left bg-white p-5 rounded-2xl border border-[#E0E3DB] shadow-sm hover:border-[#3A693A] transition-all font-bold text-[#101F10] disabled:opacity-50"
+                  >
+                    {r}
+                  </button>
+                ))}
+                
+                {stuckLoading && (
+                  <div className="flex items-center gap-3 text-[#3A693A] font-bold p-4">
+                    <Loader2 className="w-5 h-5 animate-spin" /> Thinking...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-white p-8 rounded-[32px] border border-[#E0E3DB] shadow-sm flex flex-col gap-6">
+                <div className="text-[#101F10] whitespace-pre-wrap leading-relaxed text-lg">
+                  {stuckIntervention}
+                </div>
+                
+                <div className="flex gap-4 mt-4">
+                  <button 
+                    onClick={() => {
+                      closeStuckModal();
+                      setIsPaused(false);
+                    }}
+                    className="flex-1 bg-[#3A693A] text-white py-4 px-6 rounded-2xl font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-transform"
+                  >
+                    <Play className="w-5 h-5 fill-current" />
+                    Back to work
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

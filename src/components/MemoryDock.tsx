@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './AuthProvider';
-import { Bookmark, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Bookmark, Loader2, Plus, Trash2, Undo2 } from 'lucide-react';
 
 export default function MemoryDock() {
   const { getToken } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [newItem, setNewItem] = useState('');
+  
+  const [deletedIds, setDeletedIds] = useState<number[]>([]);
+  const [undoTimers, setUndoTimers] = useState<Record<number, NodeJS.Timeout>>({});
 
   useEffect(() => {
     fetchItems();
@@ -53,21 +56,36 @@ export default function MemoryDock() {
     }
   };
 
-  const handleDelete = async (id: number) => {
-    try {
-      const token = await getToken();
-      const res = await fetch(`/api/memory-dock/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      if (res.ok) {
-        setItems(items.filter(item => item.id !== id));
+  const handleDelete = (id: number) => {
+    setDeletedIds(prev => [...prev, id]);
+    
+    const timer = setTimeout(async () => {
+      try {
+        const token = await getToken();
+        await fetch(`/api/memory-dock/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        setItems(prev => prev.filter(item => item.id !== id));
+        setDeletedIds(prev => prev.filter(x => x !== id));
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
+    }, 5000);
+    
+    setUndoTimers(prev => ({ ...prev, [id]: timer }));
+  };
+
+  const handleUndo = (id: number) => {
+    if (undoTimers[id]) {
+      clearTimeout(undoTimers[id]);
+      const newTimers = { ...undoTimers };
+      delete newTimers[id];
+      setUndoTimers(newTimers);
     }
+    setDeletedIds(prev => prev.filter(x => x !== id));
   };
 
   return (
@@ -103,22 +121,40 @@ export default function MemoryDock() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {items.map(item => (
-            <div key={item.id} className="bg-[#EDF1E9] p-5 rounded-2xl border border-[#DDE5D9] shadow-sm group">
-              <p className="text-[#101F10] whitespace-pre-wrap font-medium">{item.content}</p>
-              <div className="mt-4 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                <span className="text-xs text-[#3A693A] font-bold uppercase tracking-wider">{item.type}</span>
-                <button 
-                  onClick={() => handleDelete(item.id)}
-                  className="text-[#424940] hover:text-[#3A693A] transition-colors p-1"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+          {items.map(item => {
+            const isDeleting = deletedIds.includes(item.id);
+            return (
+              <div key={item.id} className={`bg-[#EDF1E9] p-5 rounded-2xl border border-[#DDE5D9] shadow-sm group transition-all duration-300 ${isDeleting ? 'opacity-50 scale-95 pointer-events-none' : ''}`}>
+                <p className="text-[#101F10] whitespace-pre-wrap font-medium">{item.content}</p>
+                <div className="mt-4 flex justify-between items-center sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <span className="text-xs text-[#3A693A] font-bold uppercase tracking-wider">{item.type}</span>
+                  <button 
+                    onClick={() => handleDelete(item.id)}
+                    className="text-[#424940] hover:text-[#3A693A] transition-colors p-1"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
+
+      {/* Undo Toasts */}
+      <div className="fixed bottom-24 md:bottom-12 left-1/2 -translate-x-1/2 flex flex-col gap-2 z-50">
+        {deletedIds.map(id => (
+          <div key={id} className="bg-[#191C19] text-white px-4 py-3 rounded-full shadow-xl flex items-center gap-4 text-sm font-bold animate-in fade-in slide-in-from-bottom-5">
+            <span>Item deleted</span>
+            <button 
+              onClick={() => handleUndo(id)}
+              className="text-[#A3C9A3] hover:text-white flex items-center gap-1 transition-colors"
+            >
+              <Undo2 className="w-4 h-4" /> Undo
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

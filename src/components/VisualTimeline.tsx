@@ -3,6 +3,7 @@ import { useAuth } from './AuthProvider';
 import { Clock, Loader2, Play, CheckCircle } from 'lucide-react';
 import { format, addMinutes } from 'date-fns';
 import { Link } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 
 export default function VisualTimeline() {
   const { getToken } = useAuth();
@@ -42,6 +43,12 @@ export default function VisualTimeline() {
         body: JSON.stringify({ status: 'completed' })
       });
       if (res.ok) {
+        confetti({
+          particleCount: 80,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#3A693A', '#84A98C', '#A3C9A3']
+        });
         setTasks(tasks.filter(t => t.id !== taskId));
       }
     } catch (e) {

@@ -1,0 +1,26 @@
+{
+  "background_color": "#ffffff",
+  "description": "An ADHD executive-function assistant to manage overwhelm and focus.",
+  "dir": "ltr",
+  "display": "standalone",
+  "name": "serene-focus.onrender",
+  "orientation": "any",
+  "scope": "/",
+  "short_name": "serene-focus.onrender",
+  "start_url": "/",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://serene-focus.onrender.com/favicon.ico",
+      "type": "image/x-icon",
+      "isSquare": false,
+      "isPng": false,
+      "isWebp": false,
+      "isJpg": false,
+      "width": 0,
+      "is512x512": false,
+      "is256x256": false,
+      "is192x192": false
+    }
+  ]
+}
